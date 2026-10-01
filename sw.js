@@ -13,10 +13,13 @@
  * - Otros dominios (Supabase, la IA, Open Food Facts) NO se tocan: van siempre
  *   a la red y nunca se guardan aquí.
  *
- * `2956e0498272e8b58b0ba69e578e59b5` lo sustituye `scripts/web-iphone.mjs` por la huella del bundle,
+ * `01fd17d42fbb7aea6eac08fb41a4d16c` lo sustituye `scripts/web-iphone.mjs` por la huella del bundle,
  * así cada publicación estrena caché y borra la anterior.
  */
-const CACHE = 'lumbre-2956e0498272e8b58b0ba69e578e59b5';
+const CACHE = 'lumbre-01fd17d42fbb7aea6eac08fb41a4d16c';
+// Los textos de los recordatorios (pushWeb.ts). NO es caché de versión: no se
+// borra al publicar, o los avisos llegarían sin título hasta abrir la app.
+const TEXTOS = 'lumbre-avisos';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.add('/')).catch(() => {}));
@@ -26,7 +29,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     (async () => {
-      for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+      for (const k of await caches.keys()) if (k !== CACHE && k !== TEXTOS) await caches.delete(k);
       await self.clients.claim();
     })(),
   );
@@ -64,3 +67,51 @@ async function primeroRed(pet) {
     throw err;
   }
 }
+
+/**
+ * Avisos (Web Push, lección 158). El servidor solo manda una referencia opaca
+ * (`{"ref":"r3"}`); el texto está en la caché TEXTOS, que escribe la app. Si
+ * no está (caché borrada), un texto genérico: un aviso sin título es mejor que
+ * ninguno, y uno con el título equivocado, peor.
+ */
+self.addEventListener('push', (e) => {
+  e.waitUntil(
+    (async () => {
+      let ref = '';
+      try {
+        ref = String((e.data && e.data.json() && e.data.json().ref) || '');
+      } catch (_) {
+        ref = '';
+      }
+      let texto = null;
+      try {
+        const c = await caches.open(TEXTOS);
+        const r = await c.match('/__avisos__');
+        const todos = r ? await r.json() : {};
+        texto = todos[ref] || null;
+      } catch (_) {
+        texto = null;
+      }
+      const titulo = (texto && texto.t) || 'LumbreAI';
+      const cuerpo = (texto && texto.b) || '';
+      await self.registration.showNotification(titulo, {
+        body: cuerpo,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: ref || undefined,
+        data: { url: '/' },
+      });
+    })(),
+  );
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(
+    (async () => {
+      const abiertas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const c of abiertas) if ('focus' in c) return c.focus();
+      return self.clients.openWindow('/');
+    })(),
+  );
+});
