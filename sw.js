@@ -13,10 +13,10 @@
  * - Otros dominios (Supabase, la IA, Open Food Facts) NO se tocan: van siempre
  *   a la red y nunca se guardan aquí.
  *
- * `b570942be52ba9d9ff23c381694b3d74` lo sustituye `scripts/web-iphone.mjs` por la huella del bundle,
+ * `2956e0498272e8b58b0ba69e578e59b5` lo sustituye `scripts/web-iphone.mjs` por la huella del bundle,
  * así cada publicación estrena caché y borra la anterior.
  */
-const CACHE = 'lumbre-b570942be52ba9d9ff23c381694b3d74';
+const CACHE = 'lumbre-2956e0498272e8b58b0ba69e578e59b5';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.add('/')).catch(() => {}));
